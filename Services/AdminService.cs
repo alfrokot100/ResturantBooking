@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.IdentityModel.Tokens;
 using ResturantBooking.Models;
 using ResturantBooking.Repositories.IRepositories;
@@ -22,11 +23,13 @@ namespace ResturantBooking.Services
         }
         public async Task<int> CreateAdminAsync(string username, string password)
         {
+            var passwordHasher = new PasswordHasher<Admin>();
             var admin = new Admin
             {
-                Username = username,
-                PasswordHash = password
+                Username = username
             };
+            
+            admin.PasswordHash = passwordHasher.HashPassword(admin, password);
             return await _adminRepo.CreateAdminAsync(admin);
         }
 
@@ -35,7 +38,13 @@ namespace ResturantBooking.Services
             var admin = await _adminRepo.GetAdminByUsernameAsync(username);
             if (admin == null) return null;
 
-            if(admin.PasswordHash != password) { return null; }
+            var passwordHasher = new PasswordHasher<Admin>();
+            var result = passwordHasher.VerifyHashedPassword(admin, admin.PasswordHash, password);
+
+            if (result == PasswordVerificationResult.Failed)
+            {
+                return null;
+            }
 
             //Skapar JWT 
             var claims = new[]
